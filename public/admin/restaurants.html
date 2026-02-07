@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Restaurants - YummyGo</title>
+    <link rel="stylesheet" href="/css/design-system.css">
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="/" class="navbar-brand">🍕 YummyGo</a>
+            <ul class="navbar-menu">
+                <li><a href="/admin/dashboard.html" class="navbar-link">Dashboard</a></li>
+                <li><a href="/admin/users.html" class="navbar-link">Users</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container section">
+        <h1 class="mb-3">Manage Restaurants</h1>
+
+        <div id="restaurantsList">
+            <div class="flex-center">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        (async () => {
+            const user = await requireAuth(['admin']);
+            if (!user) return;
+
+            await loadRestaurants();
+        })();
+
+        async function loadRestaurants() {
+            try {
+                const response = await API.admin.getRestaurants();
+                const restaurants = response.data;
+
+                document.getElementById('restaurantsList').innerHTML = restaurants.map(r => `
+          <div class="card mb-2 animate-fade-in">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+              <div>
+                <h3>${r.name}</h3>
+                <p class="text-muted">Owner: ${r.owner?.name} (${r.owner?.email})</p>
+                <p class="text-muted">${r.address?.city}</p>
+              </div>
+              <div style="text-align: right;">
+                <span class="badge ${r.status === 'active' ? 'badge-success' : r.status === 'pending' ? 'badge-warning' : 'badge-gray'}">${r.status}</span>
+                <br><br>
+                <select class="form-select" onchange="updateStatus('${r._id}', this.value)">
+                  <option value="">Change Status...</option>
+                  <option value="pending">Pending</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="suspended">Suspended</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        `).join('');
+            } catch (error) {
+                document.getElementById('restaurantsList').innerHTML = '<p class="text-muted">Failed to load</p>';
+            }
+        }
+
+        async function updateStatus(restaurantId, status) {
+            if (!status) return;
+
+            try {
+                await API.admin.updateRestaurantStatus(restaurantId, status);
+                Utils.showToast('Restaurant status updated!', 'success');
+                await loadRestaurants();
+            } catch (error) {
+                Utils.showToast(error.message, 'error');
+            }
+        }
+    </script>
+</body>
+
+</html>

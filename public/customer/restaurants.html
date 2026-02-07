@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browse Restaurants - YummyGo</title>
+    <link rel="stylesheet" href="/css/design-system.css">
+    <style>
+        .header {
+            background: var(--gradient-primary);
+            color: var(--white);
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .search-bar {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .restaurant-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .restaurant-card {
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .restaurant-image {
+            width: 100%;
+            height: 200px;
+            background: var(--gradient-soft);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+        }
+
+        .restaurant-info {
+            padding: 1rem;
+        }
+
+        .restaurant-name {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .restaurant-cuisines {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin: 0.5rem 0;
+        }
+
+        .restaurant-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1rem;
+            color: var(--dark-gray);
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="/" class="navbar-brand">🍕 YummyGo</a>
+            <ul class="navbar-menu">
+                <li><a href="/customer/restaurants.html" class="navbar-link">Restaurants</a></li>
+                <li><a href="/customer/swipe.html" class="navbar-link">Swipe Food</a></li>
+                <li><a href="/customer/game.html" class="navbar-link">Games</a></li>
+                <li><a href="/customer/orders.html" class="navbar-link">Orders</a></li>
+                <li><a href="/customer/cart.html" class="btn btn-primary btn-small">Cart</a></li>
+                <li><a href="#" onclick="logout()" class="navbar-link">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="header">
+        <div class="container">
+            <h1>Discover Restaurants</h1>
+            <p>Order from the best restaurants near you</p>
+            <div class="search-bar">
+                <input type="text" id="searchInput" class="form-input" placeholder="Search restaurants..."
+                    style="flex: 1;">
+                <select id="cuisineFilter" class="form-select" style="width: 200px;">
+                    <option value="">All Cuisines</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="container section">
+        <div id="restaurantGrid" class="restaurant-grid">
+            <div class="flex-center">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        let allRestaurants = [];
+        let cuisineTypes = new Set();
+
+        (async () => {
+            const user = await requireAuth(['customer']);
+            if (!user) return;
+
+            await loadRestaurants();
+
+            // Search functionality
+            document.getElementById('searchInput').addEventListener('input', filterRestaurants);
+            document.getElementById('cuisineFilter').addEventListener('change', filterRestaurants);
+        })();
+
+        async function loadRestaurants() {
+            try {
+                const response = await API.customer.getRestaurants();
+                allRestaurants = response.data;
+
+                // Extract unique cuisines
+                allRestaurants.forEach(r => {
+                    r.cuisineTypes?.forEach(c => cuisineTypes.add(c));
+                });
+
+                // Populate cuisine filter
+                const cuisineFilter = document.getElementById('cuisineFilter');
+                cuisineTypes.forEach(cuisine => {
+                    const option = document.createElement('option');
+                    option.value = cuisine;
+                    option.textContent = cuisine;
+                    cuisineFilter.appendChild(option);
+                });
+
+                renderRestaurants(allRestaurants);
+            } catch (error) {
+                Utils.showToast('Failed to load restaurants', 'error');
+            }
+        }
+
+        function filterRestaurants() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const cuisine = document.getElementById('cuisineFilter').value;
+
+            const filtered = allRestaurants.filter(r => {
+                const matchesSearch = r.name.toLowerCase().includes(search);
+                const matchesCuisine = !cuisine || r.cuisineTypes?.includes(cuisine);
+                return matchesSearch && matchesCuisine;
+            });
+
+            renderRestaurants(filtered);
+        }
+
+        function renderRestaurants(restaurants) {
+            const grid = document.getElementById('restaurantGrid');
+
+            if (restaurants.length === 0) {
+                grid.innerHTML = '<p class="text-center text-muted">No restaurants found</p>';
+                return;
+            }
+
+            grid.innerHTML = restaurants.map(r => `
+        <div class="card restaurant-card animate-fade-in" onclick="window.location.href='/customer/menu.html?id=${r._id}'">
+          <div class="restaurant-image">🏪</div>
+          <div class="restaurant-info">
+            <div class="restaurant-name">${r.name}</div>
+            <p class="text-muted">${r.description || 'Delicious food awaits!'}</p>
+            <div class="restaurant-cuisines">
+              ${(r.cuisineTypes || []).map(c => `<span class="badge badge-primary">${c}</span>`).join('')}
+            </div>
+            <div class="restaurant-meta">
+              <span>⭐ ${r.rating?.average?.toFixed(1) || 'New'}</span>
+              <span>🕐 ${r.deliveryTime || '30-40 mins'}</span>
+              <span>Min ${Utils.formatCurrency(r.minimumOrder || 0)}</span>
+            </div>
+          </div>
+        </div>
+      `).join('');
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant Dashboard - YummyGo</title>
+    <link rel="stylesheet" href="/css/design-system.css">
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="/" class="navbar-brand">🍕 YummyGo</a>
+            <ul class="navbar-menu">
+                <li><a href="/restaurant/dashboard.html" class="navbar-link">Dashboard</a></li>
+                <li><a href="/restaurant/orders.html" class="navbar-link">Orders</a></li>
+                <li><a href="/restaurant/menu.html" class="navbar-link">Menu</a></li>
+                <li><a href="/restaurant/analytics.html" class="navbar-link">Analytics</a></li>
+                <li><a href="#" onclick="logout()" class="navbar-link">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container section">
+        <h1 class="mb-3" id="restaurantName">Dashboard</h1>
+
+        <div class="grid grid-4 mb-3">
+            <div class="card text-center">
+                <div style="font-size: 3rem; color: var(--primary);" id="totalOrders">-</div>
+                <p class="text-muted">Total Orders</p>
+            </div>
+            <div class="card text-center">
+                <div style="font-size: 3rem; color: var(--warning);" id="pendingOrders">-</div>
+                <p class="text-muted">Pending Orders</p>
+            </div>
+            <div class="card text-center">
+                <div style="font-size: 3rem; color: var(--info);" id="todayOrders">-</div>
+                <p class="text-muted">Today's Orders</p>
+            </div>
+            <div class="card text-center">
+                <div style="font-size: 3rem; color: var(--success);" id="totalRevenue">-</div>
+                <p class="text-muted">Total Revenue</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 class="mb-2">Quick Actions</h3>
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                <a href="/restaurant/orders.html" class="btn btn-primary">📦 Manage Orders</a>
+                <a href="/restaurant/menu.html" class="btn btn-secondary">🍽️ Manage Menu</a>
+                <a href="/restaurant/analytics.html" class="btn btn-ghost">📊 View Analytics</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        (async () => {
+            const user = await requireAuth(['restaurant']);
+            if (!user) return;
+
+            await loadDashboard();
+        })();
+
+        async function loadDashboard() {
+            try {
+                const response = await API.restaurant.getDashboard();
+                const { restaurant, stats } = response.data;
+
+                document.getElementById('restaurantName').textContent = `${restaurant.name} - Dashboard`;
+                document.getElementById('totalOrders').textContent = stats.totalOrders;
+                document.getElementById('pendingOrders').textContent = stats.pendingOrders;
+                document.getElementById('todayOrders').textContent = stats.todayOrders;
+                document.getElementById('totalRevenue').textContent = Utils.formatCurrency(stats.totalRevenue);
+            } catch (error) {
+                Utils.showToast('Failed to load dashboard', 'error');
+            }
+        }
+    </script>
+</body>
+
+</html>

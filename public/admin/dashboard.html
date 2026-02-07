@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - YummyGo</title>
+    <link rel="stylesheet" href="/css/design-system.css">
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="/" class="navbar-brand">🍕 YummyGo</a>
+            <ul class="navbar-menu">
+                <li><a href="/admin/dashboard.html" class="navbar-link">Dashboard</a></li>
+                <li><a href="/admin/restaurants.html" class="navbar-link">Restaurants</a></li>
+                <li><a href="/admin/users.html" class="navbar-link">Users</a></li>
+                <li><a href="#" onclick="logout()" class="navbar-link">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container section">
+        <h1 class="mb-3">Admin Dashboard</h1>
+
+        <div class="grid grid-4 mb-3">
+            <div class="card text-center">
+                <div style="font-size: 3rem; color: var(--primary);" id="totalRestaurants">-</div>
+                <p class="text-muted">Total Restaurants</p>
+            </div>
+            <div class="card text-center">
+                <div style="font-size: 3rem; color: var(--success);" id="activeRestaurants">-</div>
+                <p class="text-muted">Active Restaurants</p>
+            </div>
+            <div class="card text-center">
+                <div style="font-size: 3rem; color: var(--info);" id="totalCustomers">-</div>
+                <p class="text-muted">Customers</p>
+            </div>
+            <div class="card text-center">
+                <div style="font-size: 3rem; color: var(--warning);" id="totalOrders">-</div>
+                <p class="text-muted">Total Orders</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 class="mb-2">Quick Links</h3>
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                <a href="/admin/restaurants.html" class="btn btn-primary">Manage Restaurants</a>
+                <a href="/admin/users.html" class="btn btn-secondary">Manage Users</a>
+                <a href="http://localhost:9090" target="_blank" class="btn btn-ghost">Prometheus</a>
+                <a href="http://localhost:3001" target="_blank" class="btn btn-ghost">Grafana</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        (async () => {
+            const user = await requireAuth(['admin']);
+            if (!user) return;
+
+            await loadStats();
+        })();
+
+        async function loadStats() {
+            try {
+                const response = await API.admin.getStats();
+                const { restaurants, users, orders } = response.data;
+
+                document.getElementById('totalRestaurants').textContent = restaurants.total;
+                document.getElementById('activeRestaurants').textContent = restaurants.active;
+                document.getElementById('totalCustomers').textContent = users.customers;
+                document.getElementById('totalOrders').textContent = orders.total;
+            } catch (error) {
+                Utils.showToast('Failed to load stats', 'error');
+            }
+        }
+    </script>
+</body>
+
+</html>

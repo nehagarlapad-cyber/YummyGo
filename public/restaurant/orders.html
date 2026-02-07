@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Orders - YummyGo</title>
+    <link rel="stylesheet" href="/css/design-system.css">
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="/" class="navbar-brand">🍕 YummyGo</a>
+            <ul class="navbar-menu">
+                <li><a href="/restaurant/dashboard.html" class="navbar-link">Dashboard</a></li>
+                <li><a href="/restaurant/menu.html" class="navbar-link">Menu</a></li>
+                <li><a href="#" onclick="logout()" class="navbar-link">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container section">
+        <h1 class="mb-3">Manage Orders</h1>
+
+        <div id="ordersList">
+            <div class="flex-center">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        (async () => {
+            const user = await requireAuth(['restaurant']);
+            if (!user) return;
+
+            await loadOrders();
+        })();
+
+        async function loadOrders() {
+            try {
+                const response = await API.restaurant.getOrders();
+                const orders = response.data;
+                renderOrders(orders);
+            } catch (error) {
+                document.getElementById('ordersList').innerHTML = '<p class="text-muted">Failed to load orders</p>';
+            }
+        }
+
+        function renderOrders(orders) {
+            const list = document.getElementById('ordersList');
+
+            if (orders.length === 0) {
+                list.innerHTML = '<div class="card text-center" style="padding: 3rem;"><h3>No orders yet</h3></div>';
+                return;
+            }
+
+            list.innerHTML = orders.map(order => `
+        <div class="card mb-2 animate-fade-in">
+          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+            <div>
+              <div style="font-weight: 600; font-size: 1.125rem;">Order #${order._id.slice(-8)}</div>
+              <div class="text-muted">${order.customer?.name} • ${Utils.formatDate(order.createdAt)}</div>
+            </div>
+            <span class="badge ${Utils.getStatusBadge(order.status)}">${order.status}</span>
+          </div>
+          
+          <div style="margin-bottom: 1rem;">
+            <strong>Items:</strong>
+            ${order.items.map(item => `<div class="text-muted">• ${item.name} × ${item.quantity}</div>`).join('')}
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; border-top: 1px solid var(--light-gray);">
+            <div>
+              <strong style="font-size: 1.25rem; color: var(--primary);">${Utils.formatCurrency(order.total)}</strong>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+              ${order.status === 'pending' ? `
+                <button class="btn btn-ghost btn-small" onclick="rejectOrder('${order._id}')">❌ Reject</button>
+                <button class="btn btn-primary btn-small" onclick="acceptOrder('${order._id}')">✅ Accept</button>
+              ` : order.status === 'confirmed' ? `
+                <button class="btn btn-primary btn-small" onclick="updateStatus('${order._id}', 'preparing')">Start Preparing</button>
+              ` : order.status === 'preparing' ? `
+                <button class="btn btn-primary btn-small" onclick="updateStatus('${order._id}', 'ready')">Mark Ready</button>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+      `).join('');
+        }
+
+        async function acceptOrder(orderId) {
+            try {
+                await API.restaurant.acceptOrder(orderId);
+                Utils.showToast('Order accepted!', 'success');
+                await loadOrders();
+            } catch (error) {
+                Utils.showToast(error.message, 'error');
+            }
+        }
+
+        async function rejectOrder(orderId) {
+            const reason = prompt('Reason for rejection:');
+            if (!reason) return;
+
+            try {
+                await API.restaurant.rejectOrder(orderId, reason);
+                Utils.showToast('Order rejected', 'info');
+                await loadOrders();
+            } catch (error) {
+                Utils.showToast(error.message, 'error');
+            }
+        }
+
+        async function updateStatus(orderId, status) {
+            try {
+                await API.restaurant.updateOrderStatus(orderId, status);
+                Utils.showToast('Order status updated!', 'success');
+                await loadOrders();
+            } catch (error) {
+                Utils.showToast(error.message, 'error');
+            }
+        }
+    </script>
+</body>
+
+</html>

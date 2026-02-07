@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Orders - YummyGo</title>
+    <link rel="stylesheet" href="/css/design-system.css">
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="/" class="navbar-brand">🍕 YummyGo</a>
+            <ul class="navbar-menu">
+                <li><a href="/customer/restaurants.html" class="navbar-link">Restaurants</a></li>
+                <li><a href="/customer/swipe.html" class="navbar-link">Swipe</a></li>
+                <li><a href="/customer/game.html" class="navbar-link">Games</a></li>
+                <li><a href="/customer/profile.html" class="navbar-link">Profile</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container section">
+        <h1 class="mb-3">My Orders</h1>
+
+        <div id="ordersList">
+            <div class="flex-center">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        (async () => {
+            const user = await requireAuth(['customer']);
+            if (!user) return;
+
+            await loadOrders();
+        })();
+
+        async function loadOrders() {
+            try {
+                const response = await API.customer.getOrders();
+                const orders = response.data;
+                renderOrders(orders);
+            } catch (error) {
+                document.getElementById('ordersList').innerHTML = '<p class="text-muted">Failed to load orders</p>';
+            }
+        }
+
+        function renderOrders(orders) {
+            const list = document.getElementById('ordersList');
+
+            if (orders.length === 0) {
+                list.innerHTML = `
+          <div class="card text-center" style="padding: 3rem;">
+            <div style="font-size: 4rem; margin-bottom: 1rem;">📦</div>
+            <h3>No orders yet</h3>
+            <p class="text-muted">Start ordering delicious food!</p>
+            <a href="/customer/restaurants.html" class="btn btn-primary mt-2">Browse Restaurants</a>
+          </div>
+        `;
+                return;
+            }
+
+            list.innerHTML = orders.map(order => `
+        <div class="card mb-2 animate-fade-in">
+          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+            <div>
+              <div style="font-weight: 600; font-size: 1.125rem;">${order.restaurant?.name}</div>
+              <div class="text-muted">${Utils.formatDate(order.createdAt)}</div>
+            </div>
+            <span class="badge ${Utils.getStatusBadge(order.status)}">${order.status}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div class="text-muted">${order.items.length} items • ${Utils.formatCurrency(order.total)}</div>
+              ${order.pointsEarned > 0 ? `<div style="color: var(--success);">+${order.pointsEarned} points earned</div>` : ''}
+            </div>
+            <div>
+              ${['pending', 'confirmed', 'preparing', 'ready', 'out-for-delivery'].includes(order.status)
+                    ? `<a href="/customer/tracking.html?id=${order._id}" class="btn btn-primary btn-small">Track Order</a>`
+                    : `<button class="btn btn-ghost btn-small" onclick="reorder('${order._id}')">Reorder</button>`
+                }
+            </div>
+          </div>
+        </div>
+      `).join('');
+        }
+
+        function reorder(orderId) {
+            Utils.showToast('Reorder feature coming soon!', 'info');
+        }
+    </script>
+</body>
+
+</html>

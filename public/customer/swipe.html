@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swipe for Food - YummyGo</title>
+    <link rel="stylesheet" href="/css/design-system.css">
+    <style>
+        .swipe-container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .card-stack {
+            position: relative;
+            height: 600px;
+        }
+
+        .swipe-card {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: var(--white);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-xl);
+            cursor: grab;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+
+        .swipe-card.swiping {
+            transition: none;
+            cursor: grabbing;
+        }
+
+        .swipe-card.swiped-right {
+            animation: swipeRight 0.5s forwards;
+        }
+
+        .swipe-card.swiped-left {
+            animation: swipeLeft 0.5s forwards;
+        }
+
+        @keyframes swipeRight {
+            to {
+                transform: translateX(150%) rotate(20deg);
+                opacity: 0;
+            }
+        }
+
+        @keyframes swipeLeft {
+            to {
+                transform: translateX(-150%) rotate(-20deg);
+                opacity: 0;
+            }
+        }
+
+        .food-image {
+            width: 100%;
+            height: 300px;
+            background: var(--gradient-soft);
+            border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 6rem;
+        }
+
+        .food-info {
+            padding: 2rem;
+        }
+
+        .swipe-actions {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .action-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: var(--radius-full);
+            border: none;
+            font-size: 2rem;
+            cursor: pointer;
+            box-shadow: var(--shadow-md);
+            transition: all var(--transition-base);
+        }
+
+        .action-btn:hover {
+            transform: scale(1.1);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn-dislike {
+            background: var(--error);
+            color: var(--white);
+        }
+
+        .btn-like {
+            background: var(--success);
+            color: var(--white);
+        }
+
+        .matches-link {
+            position: fixed;
+            top: 100px;
+            right: 2rem;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="/" class="navbar-brand">🍕 YummyGo</a>
+            <ul class="navbar-menu">
+                <li><a href="/customer/restaurants.html" class="navbar-link">Restaurants</a></li>
+                <li><a href="/customer/orders.html" class="navbar-link">Orders</a></li>
+                <li><a href="/customer/cart.html" class="btn btn-primary btn-small">Cart</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="swipe-container">
+        <h1 class="text-center mb-3">🔥 Swipe for Food</h1>
+        <p class="text-center text-muted mb-3">Swipe right to like, left to pass</p>
+
+        <div class="card-stack" id="cardStack">
+            <div class="flex-center" style="height: 100%;">
+                <div class="spinner"></div>
+            </div>
+        </div>
+
+        <div class="swipe-actions">
+            <button class="action-btn btn-dislike" onclick="swipe('disliked')">👎</button>
+            <button class="action-btn btn-like" onclick="swipe('liked')">👍</button>
+        </div>
+
+        <a href="#" onclick="showMatches()" class="matches-link">
+            <button class="btn btn-secondary">❤️ View Matches</button>
+        </a>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        let foodItems = [];
+        let currentIndex = 0;
+
+        (async () => {
+            const user = await requireAuth(['customer']);
+            if (!user) return;
+
+            await loadSwipeItems();
+        })();
+
+        async function loadSwipeItems() {
+            try {
+                const response = await API.swipe.getItems();
+                foodItems = response.data;
+                renderCards();
+            } catch (error) {
+                Utils.showToast('Failed to load items', 'error');
+            }
+        }
+
+        function renderCards() {
+            const stack = document.getElementById('cardStack');
+
+            if (currentIndex >= foodItems.length) {
+                stack.innerHTML = `
+          <div class="card flex-center" style="height: 100%; flex-direction: column; padding: 2rem;">
+            <div style="font-size: 4rem; margin-bottom: 1rem;">🎉</div>
+            <h3>That's all for now!</h3>
+            <p class="text-muted">Check back later for more recommendations</p>
+            <button class="btn btn-primary mt-2" onclick="window.location.href='/customer/restaurants.html'">Browse Restaurants</button>
+          </div>
+        `;
+                return;
+            }
+
+            const item = foodItems[currentIndex];
+            stack.innerHTML = `
+        <div class="swipe-card" id="currentCard">
+          <div class="food-image">🍽️</div>
+          <div class="food-info">
+            <h2>${item.name}</h2>
+            <p class="text-muted">${item.description || ''}</p>
+            <div style="display: flex; gap: 0.5rem; margin: 1rem 0;">
+              ${item.isVegetarian ? '<span class="badge badge-success">Veg</span>' : ''}
+              <span class="badge badge-primary">${item.category}</span>
+              ${item.restaurant ? `<span class="badge badge-gray">${item.restaurant.name}</span>` : ''}
+            </div>
+            <div style="font-size: 2rem; font-weight: 700; color: var(--primary);">${Utils.formatCurrency(item.price)}</div>
+          </div>
+        </div>
+      `;
+
+            enableSwipeGesture();
+        }
+
+        function enableSwipeGesture() {
+            const card = document.getElementById('currentCard');
+            if (!card) return;
+
+            let startX = 0;
+            let currentX = 0;
+            let isDragging = false;
+
+            card.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                startX = e.clientX;
+                card.classList.add('swiping');
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                currentX = e.clientX - startX;
+                card.style.transform = `translateX(${currentX}px) rotate(${currentX / 20}deg)`;
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (!isDragging) return;
+                isDragging = false;
+                card.classList.remove('swiping');
+
+                if (Math.abs(currentX) > 100) {
+                    const action = currentX > 0 ? 'liked' : 'disliked';
+                    swipe(action);
+                } else {
+                    card.style.transform = '';
+                }
+            });
+        }
+
+        async function swipe(action) {
+            const card = document.getElementById('currentCard');
+            if (!card) return;
+
+            const item = foodItems[currentIndex];
+
+            card.classList.add(action === 'liked' ? 'swiped-right' : 'swiped-left');
+
+            try {
+                await API.swipe.recordAction(item._id, action);
+                if (action === 'liked') {
+                    Utils.showToast('Added to matches! ❤️', 'success');
+                }
+            } catch (error) {
+                console.error('Swipe error:', error);
+            }
+
+            setTimeout(() => {
+                currentIndex++;
+                renderCards();
+            }, 500);
+        }
+
+        function showMatches() {
+            window.location.href = '/customer/matches.html';
+        }
+    </script>
+</body>
+
+</html>

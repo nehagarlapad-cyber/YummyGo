@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delivery Dashboard - YummyGo</title>
+    <link rel="stylesheet" href="/css/design-system.css">
+    <style>
+        .status-toggle {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: var(--gradient-soft);
+            border-radius: var(--radius-lg);
+            margin-bottom: 1.5rem;
+        }
+
+        .zone-chip {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background: var(--light-gray);
+            border-radius: var(--radius-full);
+            margin: 0.25rem;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .zone-chip.selected {
+            background: var(--primary);
+            color: var(--white);
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="/" class="navbar-brand">🍕 YummyGo</a>
+            <ul class="navbar-menu">
+                <li><a href="/delivery/dashboard.html" class="navbar-link">Dashboard</a></li>
+                <li><a href="/delivery/available.html" class="navbar-link">Available Orders</a></li>
+                <li><a href="/delivery/history.html" class="navbar-link">History</a></li>
+                <li><a href="#" onclick="logout()" class="navbar-link">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container section">
+        <h1 class="mb-3">Delivery Dashboard</h1>
+
+        <div class="status-toggle">
+            <div style="flex: 1;">
+                <h3>Status: <span id="statusText">-</span></h3>
+                <p class="text-muted">Toggle to start/stop receiving orders</p>
+            </div>
+            <button id="toggleBtn" class="btn btn-large" onclick="toggleStatus()">Toggle</button>
+        </div>
+
+        <div class="card mb-3">
+            <h3 class="mb-2">Select Active Zones</h3>
+            <div id="zoneList">
+                <div class="flex-center">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+            <button class="btn btn-primary mt-2" onclick="saveZones()">Save Zones</button>
+        </div>
+
+        <div class="grid grid-3">
+            <div class="card text-center">
+                <div style="font-size: 3rem; color: var(--success);" id="totalEarnings">-</div>
+                <p class="text-muted">Total Earnings</p>
+            </div>
+            <div class="card text-center">
+                <div style="font-size: 3rem; color: var(--primary);" id="totalDeliveries">-</div>
+                <p class="text-muted">Total Deliveries</p>
+            </div>
+            <div class="card text-center">
+                <div style="font-size: 3rem; color: var(--info);" id="todayDeliveries">-</div>
+                <p class="text-muted">Today's Deliveries</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        let user = null;
+        let zones = [];
+        let selectedZones = [];
+
+        (async () => {
+            user = await requireAuth(['delivery']);
+            if (!user) return;
+
+            await loadZones();
+            await loadEarnings();
+            updateStatusDisplay();
+        })();
+
+        function updateStatusDisplay() {
+            const statusText = document.getElementById('statusText');
+            const toggleBtn = document.getElementById('toggleBtn');
+
+            if (user.deliveryStatus === 'active') {
+                statusText.textContent = 'Active 🟢';
+                statusText.style.color = 'var(--success)';
+                toggleBtn.textContent = 'Go Offline';
+                toggleBtn.className = 'btn btn-large btn-ghost';
+            } else {
+                statusText.textContent = 'Offline 🔴';
+                statusText.style.color = 'var(--error)';
+                toggleBtn.textContent = 'Go Active';
+                toggleBtn.className = 'btn btn-large btn-primary';
+            }
+        }
+
+        async function toggleStatus() {
+            try {
+                const response = await API.delivery.toggleStatus();
+                user.deliveryStatus = response.data.deliveryStatus;
+                updateStatusDisplay();
+                Utils.showToast(user.deliveryStatus === 'active' ? 'You are now active!' : 'You are offline', 'info');
+            } catch (error) {
+                Utils.showToast(error.message, 'error');
+            }
+        }
+
+        async function loadZones() {
+            try {
+                const response = await API.delivery.getZones();
+                zones = response.data;
+                selectedZones = user.activeZones || [];
+                renderZones();
+            } catch (error) {
+                document.getElementById('zoneList').innerHTML = '<p class="text-muted">Failed to load zones</p>';
+            }
+        }
+
+        function renderZones() {
+            document.getElementById('zoneList').innerHTML = zones.map(zone => `
+        <span class="zone-chip ${selectedZones.includes(zone._id) ? 'selected' : ''}" 
+              onclick="toggleZone('${zone._id}')">
+          ${zone.name} - ${zone.area}
+        </span>
+      `).join('');
+        }
+
+        function toggleZone(zoneId) {
+            if (selectedZones.includes(zoneId)) {
+                selectedZones = selectedZones.filter(id => id !== zoneId);
+            } else {
+                selectedZones.push(zoneId);
+            }
+            renderZones();
+        }
+
+        async function saveZones() {
+            try {
+                await API.delivery.updateZones(selectedZones);
+                Utils.showToast('Zones updated!', 'success');
+            } catch (error) {
+                Utils.showToast(error.message, 'error');
+            }
+        }
+
+        async function loadEarnings() {
+            try {
+                const response = await API.delivery.getEarnings();
+                const { totalEarnings, totalDeliveries, todayDeliveries } = response.data;
+
+                document.getElementById('totalEarnings').textContent = Utils.formatCurrency(totalEarnings);
+                document.getElementById('totalDeliveries').textContent = totalDeliveries;
+                document.getElementById('todayDeliveries').textContent = todayDeliveries;
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    </script>
+</body>
+
+</html>

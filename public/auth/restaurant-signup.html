@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant Signup - YummyGo</title>
+    <link rel="stylesheet" href="/css/design-system.css">
+    <style>
+        .auth-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--gradient-primary);
+            padding: 2rem;
+        }
+
+        .auth-card {
+            background: var(--white);
+            border-radius: var(--radius-xl);
+            padding: 3rem;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: var(--shadow-xl);
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .auth-logo {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="auth-container">
+        <div class="auth-card animate-fade-in">
+            <div class="auth-header">
+                <div class="auth-logo">🏪</div>
+                <h2>Partner With Us!</h2>
+                <p class="text-muted">Register your restaurant</p>
+            </div>
+
+            <form id="restaurantSignupForm">
+                <h4 class="mb-2">Owner Details</h4>
+                <div class="form-group">
+                    <label class="form-label">Your Name</label>
+                    <input type="text" id="name" class="form-input" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" id="email" class="form-input" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Phone</label>
+                    <input type="tel" id="phone" class="form-input" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" id="password" class="form-input" required>
+                </div>
+
+                <h4 class="mb-2 mt-3">Restaurant Details</h4>
+                <div class="form-group">
+                    <label class="form-label">Restaurant Name</label>
+                    <input type="text" id="restaurantName" class="form-input" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Address</label>
+                    <textarea id="address" class="form-textarea" required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Cuisine Types (comma separated)</label>
+                    <input type="text" id="cuisineTypes" class="form-input" placeholder="Indian, Chinese, Italian">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea id="description" class="form-textarea"></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Register Restaurant</button>
+            </form>
+
+            <p class="text-center mt-2">
+                Already have an account? <a href="/auth/login.html">Login</a>
+            </p>
+        </div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        document.getElementById('restaurantSignupForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const data = {
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                phone: document.getElementById('phone').value,
+                password: document.getElementById('password').value,
+                restaurantName: document.getElementById('restaurantName').value,
+                restaurantAddress: document.getElementById('address').value,
+                cuisineTypes: document.getElementById('cuisineTypes').value.split(',').map(c => c.trim()),
+                description: document.getElementById('description').value,
+            };
+
+            try {
+                const response = await API.auth.restaurantSignup(data);
+                Utils.showToast('Registration successful! Pending admin approval.', 'success');
+                setTimeout(() => {
+                    window.location.href = '/restaurant/dashboard.html';
+                }, 1500);
+            } catch (error) {
+                Utils.showToast(error.message, 'error');
+            }
+        });
+    </script>
+</body>
+
+</html>

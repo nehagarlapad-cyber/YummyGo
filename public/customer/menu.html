@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu - YummyGo</title>
+    <link rel="stylesheet" href="/css/design-system.css">
+    <style>
+        .restaurant-header {
+            background: var(--gradient-primary);
+            color: var(--white);
+            padding: 2rem;
+        }
+
+        .menu-grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        .menu-item {
+            display: grid;
+            grid-template-columns: 120px 1fr auto;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .item-image {
+            width: 120px;
+            height: 120px;
+            background: var(--gradient-soft);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+        }
+
+        .item-info {
+            flex: 1;
+        }
+
+        .item-name {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .item-price {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .quantity-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .quantity-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-full);
+            border: none;
+            background: var(--primary);
+            color: var(--white);
+            cursor: pointer;
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="/" class="navbar-brand">🍕 YummyGo</a>
+            <ul class="navbar-menu">
+                <li><a href="/customer/restaurants.html" class="navbar-link">← Back</a></li>
+                <li><a href="/customer/cart.html" class="btn btn-primary btn-small">Cart</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="restaurant-header" id="restaurantHeader">
+        <div class="container">
+            <h1 id="restaurantName">Loading...</h1>
+            <p id="restaurantDesc"></p>
+        </div>
+    </div>
+
+    <div class="container section">
+        <h2>Menu</h2>
+        <div id="menuGrid" class="menu-grid">
+            <div class="flex-center">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const restaurantId = urlParams.get('id');
+
+        (async () => {
+            const user = await requireAuth(['customer']);
+            if (!user) return;
+
+            if (!restaurantId) {
+                Utils.showToast('Restaurant not found', 'error');
+                window.location.href = '/customer/restaurants.html';
+                return;
+            }
+
+            await loadMenu();
+        })();
+
+        async function loadMenu() {
+            try {
+                const response = await API.customer.getMenu(restaurantId);
+                const { restaurant, menuItems } = response.data;
+
+                document.getElementById('restaurantName').textContent = restaurant.name;
+                document.getElementById('restaurantDesc').textContent = restaurant.description || '';
+
+                renderMenu(menuItems);
+            } catch (error) {
+                Utils.showToast('Failed to load menu', 'error');
+            }
+        }
+
+        function renderMenu(items) {
+            const grid = document.getElementById('menuGrid');
+
+            if (items.length === 0) {
+                grid.innerHTML = '<p class="text-muted">No items available</p>';
+                return;
+            }
+
+            grid.innerHTML = items.map(item => `
+        <div class="card menu-item animate-fade-in">
+          <div class="item-image">🍽️</div>
+          <div class="item-info">
+            <div class="item-name">${item.name}</div>
+            <p class="text-muted">${item.description || ''}</p>
+            <div style="display: flex; gap: 0.5rem; margin: 0.5rem 0;">
+              ${item.isVegetarian ? '<span class="badge badge-success">Veg</span>' : ''}
+              ${item.category ? `<span class="badge badge-gray">${item.category}</span>` : ''}
+              ${item.spiceLevel ? `<span class="badge badge-warning">🌶️ ${item.spiceLevel}</span>` : ''}
+            </div>
+            <div class="item-price">${Utils.formatCurrency(item.price)}</div>
+          </div>
+          <div class="quantity-controls">
+            <button class="btn btn-primary" onclick="addToCart('${item._id}', '${item.name}', ${item.price})">Add to Cart</button>
+          </div>
+        </div>
+      `).join('');
+        }
+
+        async function addToCart(menuItemId, name, price) {
+            try {
+                await API.customer.addToCart({ menuItemId, quantity: 1 });
+                Utils.showToast(`${name} added to cart!`, 'success');
+            } catch (error) {
+                Utils.showToast(error.message, 'error');
+            }
+        }
+    </script>
+</body>
+
+</html>

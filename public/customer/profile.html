@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - YummyGo</title>
+    <link rel="stylesheet" href="/css/design-system.css">
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="/" class="navbar-brand">🍕 YummyGo</a>
+            <ul class="navbar-menu">
+                <li><a href="/customer/restaurants.html" class="navbar-link">Restaurants</a></li>
+                <li><a href="/customer/orders.html" class="navbar-link">Orders</a></li>
+                <li><a href="#" onclick="logout()" class="navbar-link">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container section">
+        <h1 class="mb-3">My Profile</h1>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+            <div class="card">
+                <h3 class="mb-2">Personal Information</h3>
+                <form id="profileForm">
+                    <div class="form-group">
+                        <label class="form-label">Name</label>
+                        <input type="text" id="name" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email</label>
+                        <input type="email" id="email" class="form-input" disabled>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Phone</label>
+                        <input type="tel" id="phone" class="form-input">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Update Profile</button>
+                </form>
+            </div>
+
+            <div>
+                <div class="card mb-2">
+                    <h3 class="mb-2">🎁 Reward Points</h3>
+                    <div style="text-align: center; padding: 2rem;">
+                        <div style="font-size: 4rem; font-weight: 700; color: var(--primary);" id="pointsDisplay">-
+                        </div>
+                        <p class="text-muted">Total Points</p>
+                        <a href="/customer/game.html" class="btn btn-secondary mt-2">Earn More Points</a>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="mb-2">Quick Actions</h3>
+                    <a href="/customer/swipe.html" class="btn btn-ghost" style="width: 100%; margin-bottom: 0.5rem;">🔥
+                        Swipe for Food</a>
+                    <a href="/customer/game.html" class="btn btn-ghost" style="width: 100%; margin-bottom: 0.5rem;">🎮
+                        Play Games</a>
+                    <a href="/customer/orders.html" class="btn btn-ghost" style="width: 100%;">📦 View Orders</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        let user = null;
+
+        (async () => {
+            user = await requireAuth(['customer']);
+            if (!user) return;
+
+            await loadProfile();
+            await loadPoints();
+
+            document.getElementById('profileForm').addEventListener('submit', updateProfile);
+        })();
+
+        async function loadProfile() {
+            try {
+                const response = await API.customer.getProfile();
+                user = response.data;
+
+                document.getElementById('name').value = user.name || '';
+                document.getElementById('email').value = user.email || '';
+                document.getElementById('phone').value = user.phone || '';
+            } catch (error) {
+                Utils.showToast('Failed to load profile', 'error');
+            }
+        }
+
+        async function loadPoints() {
+            try {
+                const response = await API.customer.getPoints();
+                document.getElementById('pointsDisplay').textContent = response.data.points || 0;
+            } catch (error) {
+                console.error('Points error:', error);
+            }
+        }
+
+        async function updateProfile(e) {
+            e.preventDefault();
+
+            const data = {
+                name: document.getElementById('name').value,
+                phone: document.getElementById('phone').value,
+            };
+
+            try {
+                await API.customer.updateProfile(data);
+                Utils.showToast('Profile updated successfully!', 'success');
+            } catch (error) {
+                Utils.showToast(error.message, 'error');
+            }
+        }
+    </script>
+</body>
+
+</html>

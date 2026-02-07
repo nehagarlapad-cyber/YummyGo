@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics - YummyGo</title>
+    <link rel="stylesheet" href="/css/design-system.css">
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="/" class="navbar-brand">🍕 YummyGo</a>
+            <ul class="navbar-menu">
+                <li><a href="/restaurant/dashboard.html" class="navbar-link">Dashboard</a></li>
+                <li><a href="/restaurant/orders.html" class="navbar-link">Orders</a></li>
+                <li><a href="/restaurant/menu.html" class="navbar-link">Menu</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container section">
+        <h1 class="mb-3">Analytics</h1>
+
+        <div class="card mb-3">
+            <h3 class="mb-2">Orders by Status</h3>
+            <div id="statusChart">
+                <div class="flex-center">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 class="mb-2">Revenue (Last 30 Days)</h3>
+            <div id="revenueChart">
+                <div class="flex-center">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        (async () => {
+            const user = await requireAuth(['restaurant']);
+            if (!user) return;
+
+            await loadAnalytics();
+        })();
+
+        async function loadAnalytics() {
+            try {
+                const response = await API.restaurant.getAnalytics();
+                const { ordersByStatus, revenueByDay } = response.data;
+
+                renderStatusChart(ordersByStatus);
+                renderRevenueChart(revenueByDay);
+            } catch (error) {
+                Utils.showToast('Failed to load analytics', 'error');
+            }
+        }
+
+        function renderStatusChart(data) {
+            const chart = document.getElementById('statusChart');
+            chart.innerHTML = data.map(item => `
+        <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--light-gray);">
+          <span style="text-transform: capitalize;">${item._id}</span>
+          <strong>${item.count} orders</strong>
+        </div>
+      `).join('');
+        }
+
+        function renderRevenueChart(data) {
+            const chart = document.getElementById('revenueChart');
+            if (data.length === 0) {
+                chart.innerHTML = '<p class="text-muted">No revenue data yet</p>';
+                return;
+            }
+
+            chart.innerHTML = data.map(item => `
+        <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--light-gray);">
+          <span>${new Date(item._id).toLocaleDateString()}</span>
+          <strong>${Utils.formatCurrency(item.revenue)} (${item.orders} orders)</strong>
+        </div>
+      `).join('');
+        }
+    </script>
+</body>
+
+</html>

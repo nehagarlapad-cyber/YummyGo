@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Play & Earn - YummyGo</title>
+    <link rel="stylesheet" href="/css/design-system.css">
+    <style>
+        .game-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .game-canvas {
+            width: 100%;
+            height: 400px;
+            background: var(--gradient-soft);
+            border-radius: var(--radius-xl);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .falling-item {
+            position: absolute;
+            font-size: 3rem;
+            animation: fall linear;
+        }
+
+        @keyframes fall {
+            from {
+                top: -50px;
+            }
+
+            to {
+                top: 100%;
+            }
+        }
+
+        .score-board {
+            display: flex;
+            justify-content: space-around;
+            margin: 2rem 0;
+            text-align: center;
+        }
+
+        .score-item h3 {
+            font-size: 2rem;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .leaderboard {
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="/" class="navbar-brand">🍕 YummyGo</a>
+            <ul class="navbar-menu">
+                <li><a href="/customer/restaurants.html" class="navbar-link">Restaurants</a></li>
+                <li><a href="/customer/orders.html" class="navbar-link">Orders</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="game-container">
+        <h1 class="text-center mb-2">🎮 Catch the Food!</h1>
+        <p class="text-center text-muted mb-3">Click on falling food items to score points</p>
+
+        <div class="score-board">
+            <div class="score-item">
+                <h3 id="currentScore">0</h3>
+                <p class="text-muted">Score</p>
+            </div>
+            <div class="score-item">
+                <h3 id="currentPoints">0</h3>
+                <p class="text-muted">Points Earned</p>
+            </div>
+            <div class="score-item">
+                <h3 id="timeLeft">60</h3>
+                <p class="text-muted">Time</p>
+            </div>
+        </div>
+
+        <div class="game-canvas" id="gameCanvas" onclick="handleClick(event)">
+            <div id="startMessage">
+                <div style="text-align: center;">
+                    <div style="font-size: 6rem; margin-bottom: 1rem;">🍕</div>
+                    <button class="btn btn-primary btn-large" onclick="startGame()">Start Game</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card leaderboard mt-3">
+            <h3 class="mb-2">🏆 Leaderboard</h3>
+            <div id="leaderboardList">
+                <div class="flex-center">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        let gameActive = false;
+        let score = 0;
+        let timeRemaining = 60;
+        let gameInterval;
+        let spawnInterval;
+        const foodEmojis = ['🍕', '🍔', '🍟', '🌭', '🍿', '🍦', '🍰', '🍩', '🍪', '🥤'];
+
+        (async () => {
+            const user = await requireAuth(['customer']);
+            if (!user) return;
+
+            await loadLeaderboard();
+        })();
+
+        function startGame() {
+            gameActive = true;
+            score = 0;
+            timeRemaining = 60;
+            document.getElementById('startMessage').style.display = 'none';
+            updateScoreDisplay();
+
+            gameInterval = setInterval(() => {
+                timeRemaining--;
+                document.getElementById('timeLeft').textContent = timeRemaining;
+
+                if (timeRemaining <= 0) {
+                    endGame();
+                }
+            }, 1000);
+
+            spawnInterval = setInterval(spawnFoodItem, 800);
+        }
+
+        function spawnFoodItem() {
+            if (!gameActive) return;
+
+            const canvas = document.getElementById('gameCanvas');
+            const item = document.createElement('div');
+            item.className = 'falling-item';
+            item.textContent = foodEmojis[Math.floor(Math.random() * foodEmojis.length)];
+            item.style.left = Math.random() * (canvas.offsetWidth - 50) + 'px';
+            item.style.animationDuration = (Math.random() * 2 + 2) + 's';
+
+            canvas.appendChild(item);
+
+            setTimeout(() => {
+                if (item.parentNode) {
+                    item.remove();
+                }
+            }, 5000);
+        }
+
+        function handleClick(event) {
+            if (!gameActive) return;
+
+            const target = event.target;
+            if (target.classList.contains('falling-item')) {
+                score += 10;
+                updateScoreDisplay();
+                target.remove();
+
+                // Visual feedback
+                const flash = document.createElement('div');
+                flash.textContent = '+10';
+                flash.style.position = 'absolute';
+                flash.style.left = event.offsetX + 'px';
+                flash.style.top = event.offsetY + 'px';
+                flash.style.color = 'var(--success)';
+                flash.style.fontWeight = 'bold';
+                flash.style.animation = 'fadeOut 0.5s forwards';
+                document.getElementById('gameCanvas').appendChild(flash);
+                setTimeout(() => flash.remove(), 500);
+            }
+        }
+
+        function updateScoreDisplay() {
+            document.getElementById('currentScore').textContent = score;
+            document.getElementById('currentPoints').textContent = Math.floor(score / 10);
+        }
+
+        async function endGame() {
+            gameActive = false;
+            clearInterval(gameInterval);
+            clearInterval(spawnInterval);
+
+            // Clear falling items
+            document.querySelectorAll('.falling-item').forEach(item => item.remove());
+
+            const pointsEarned = Math.floor(score / 10);
+
+            try {
+                await API.game.submitScore('food-match', score);
+                Utils.showToast(`Game Over! You earned ${pointsEarned} points! 🎉`, 'success');
+            } catch (error) {
+                Utils.showToast('Failed to save score', 'error');
+            }
+
+            setTimeout(() => {
+                document.getElementById('startMessage').style.display = 'flex';
+                loadLeaderboard();
+            }, 2000);
+        }
+
+        async function loadLeaderboard() {
+            try {
+                const response = await API.game.getLeaderboard();
+                const leaderboard = response.data;
+
+                const list = document.getElementById('leaderboardList');
+                if (leaderboard.length === 0) {
+                    list.innerHTML = '<p class="text-muted">No scores yet</p>';
+                    return;
+                }
+
+                list.innerHTML = leaderboard.map(entry => `
+          <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--light-gray);">
+            <span><strong>#${entry.rank}</strong> ${entry.user}</span>
+            <span>${entry.score} pts (${entry.points} rewards)</span>
+          </div>
+        `).join('');
+            } catch (error) {
+                document.getElementById('leaderboardList').innerHTML = '<p class="text-muted">Failed to load</p>';
+            }
+        }
+    </script>
+</body>
+
+</html>

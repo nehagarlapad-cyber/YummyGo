@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Track Order - YummyGo</title>
+    <link rel="stylesheet" href="/css/design-system.css">
+    <style>
+        .timeline {
+            position: relative;
+            padding: 2rem 0;
+        }
+
+        .timeline-item {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            position: relative;
+        }
+
+        .timeline-marker {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-full);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .timeline-marker.active {
+            background: var(--gradient-primary);
+            color: var(--white);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .timeline-marker.completed {
+            background: var(--success);
+            color: var(--white);
+        }
+
+        .timeline-marker.pending {
+            background: var(--light-gray);
+            color: var(--dark-gray);
+        }
+
+        .timeline-content {
+            flex: 1;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 20px;
+            top: 40px;
+            bottom: 40px;
+            width: 2px;
+            background: var(--light-gray);
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="/" class="navbar-brand">🍕 YummyGo</a>
+            <ul class="navbar-menu">
+                <li><a href="/customer/orders.html" class="navbar-link">← My Orders</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container section">
+        <h1 class="mb-3">Track Your Order</h1>
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem;">
+            <div>
+                <div class="card" id="orderTimeline">
+                    <div class="flex-center">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" id="orderDetails">
+                <div class="flex-center">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/socket.js"></script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const orderId = urlParams.get('id');
+        let order = null;
+
+        (async () => {
+            const user = await requireAuth(['customer']);
+            if (!user) return;
+
+            if (!orderId) {
+                Utils.showToast('Order not found', 'error');
+                window.location.href = '/customer/orders.html';
+                return;
+            }
+
+            await loadOrder();
+            trackOrder(orderId);
+        })();
+
+        async function loadOrder() {
+            try {
+                const response = await API.customer.getOrder(orderId);
+                order = response.data;
+                renderOrder();
+            } catch (error) {
+                Utils.showToast('Failed to load order', 'error');
+            }
+        }
+
+        function renderOrder() {
+            const statuses = [
+                { key: 'pending', label: 'Order Placed', icon: '📝' },
+                { key: 'confirmed', label: 'Confirmed', icon: '✅' },
+                { key: 'preparing', label: 'Preparing', icon: '👨‍🍳' },
+                { key: 'ready', label: 'Ready', icon: '🎉' },
+                { key: 'out-for-delivery', label: 'Out for Delivery', icon: '🚗' },
+                { key: 'delivered', label: 'Delivered', icon: '✨' },
+            ];
+
+            const currentStatusIndex = statuses.findIndex(s => s.key === order.status);
+
+            document.getElementById('orderTimeline').innerHTML = `
+        <h3 class="mb-3">Order Status</h3>
+        <div class="timeline">
+          ${statuses.map((status, index) => {
+                let markerClass = 'pending';
+                if (index < currentStatusIndex) markerClass = 'completed';
+                else if (index === currentStatusIndex) markerClass = 'active';
+
+                return `
+              <div class="timeline-item">
+                <div class="timeline-marker ${markerClass}">${status.icon}</div>
+                <div class="timeline-content">
+                  <div style="font-weight: 600;">${status.label}</div>
+                  <div class="text-muted">${index <= currentStatusIndex ? 'Completed' : 'Pending'}</div>
+                </div>
+              </div>
+            `;
+            }).join('')}
+        </div>
+      `;
+
+            document.getElementById('orderDetails').innerHTML = `
+        <h3 class="mb-2">Order Details</h3>
+        <div style="padding: 0.5rem 0; border-bottom: 1px solid var(--light-gray);">
+          <div class="text-muted">Order ID</div>
+          <div style="font-weight: 600; font-family: monospace;">#${order._id.slice(-8)}</div>
+        </div>
+        <div style="padding: 0.5rem 0; border-bottom: 1px solid var(--light-gray);">
+          <div class="text-muted">Restaurant</div>
+          <div style="font-weight: 600;">${order.restaurant?.name}</div>
+        </div>
+        <div style="padding: 0.5rem 0; border-bottom: 1px solid var(--light-gray);">
+          <div class="text-muted">Total</div>
+          <div style="font-weight: 600; font-size: 1.25rem; color: var(--primary);">${Utils.formatCurrency(order.total)}</div>
+        </div>
+        <div style="padding: 0.5rem 0; border-bottom: 1px solid var(--light-gray);">
+          <div class="text-muted">Delivery Address</div>
+          <div style="font-weight: 600;">${order.deliveryAddress?.street}, ${order.deliveryAddress?.city}</div>
+        </div>
+        <div style="padding: 0.5rem 0;">
+          <div class="text-muted">Items</div>
+          ${order.items.map(item => `<div>• ${item.name} × ${item.quantity}</div>`).join('')}
+        </div>
+      `;
+        }
+
+        function updateOrderStatus(data) {
+            order.status = data.status;
+            renderOrder();
+            Utils.showToast(`Order ${data.status}`, 'info');
+        }
+    </script>
+</body>
+
+</html>
